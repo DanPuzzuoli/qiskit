@@ -223,19 +223,19 @@ pub enum ArithmeticError {
 pub struct QubitSparsePauliList {
     /// The number of qubits the Paulis are defined on.  This is not inferable from any other shape
     /// or values, since identities are not stored explicitly.
-    num_qubits: u32,
+    pub num_qubits: u32,
     /// A flat list of single-qubit paulis.  This is more naturally a list of lists, but is stored
     /// flat for memory usage and locality reasons, with the sublists denoted by `boundaries.`
-    bit_terms: Vec<BitTerm>,
+    pub bit_terms: Vec<BitTerm>,
     /// A flat list of the qubit indices that the corresponding entries in `bit_terms` act on.  This
     /// list must always be term-wise sorted, where a term is a sublist as denoted by `boundaries`.
-    indices: Vec<u32>,
+    pub indices: Vec<u32>,
     /// Indices that partition `bit_terms` and `indices` into sublists for each individual sparse
     /// pauli.  `boundaries[0]..boundaries[1]` is the range of indices into `bit_terms` and
     /// `indices` that correspond to the first term of the sum.  All unspecified qubit indices are
     /// implicitly the identity.  This is one item longer than `coeffs`, since `boundaries[0]` is
     /// always an explicit zero (for algorithmic ease).
-    boundaries: Vec<usize>,
+    pub boundaries: Vec<usize>,
 }
 
 impl QubitSparsePauliList {
@@ -1554,7 +1554,7 @@ impl PyQubitSparsePauli {
 #[derive(Debug)]
 pub struct PyQubitSparsePauliList {
     // This class keeps a pointer to a pure Rust-SparseTerm and serves as interface from Python.
-    inner: Arc<RwLock<QubitSparsePauliList>>,
+    pub inner: Arc<RwLock<QubitSparsePauliList>>,
 }
 #[pymethods]
 impl PyQubitSparsePauliList {
@@ -2031,45 +2031,9 @@ impl PyQubitSparsePauliList {
     #[staticmethod]
     #[pyo3(signature = (iter, /, num_qubits))]
     fn from_sparse_list(iter: Vec<(String, Vec<u32>)>, num_qubits: u32) -> PyResult<Self> {
-        let mut boundaries = Vec::with_capacity(iter.len() + 1);
-        boundaries.push(0);
-        let mut indices = Vec::new();
-        let mut bit_terms = Vec::new();
-        // Insertions to the `BTreeMap` keep it sorted by keys, so we use this to do the termwise
-        // sorting on-the-fly.
-        let mut sorted = btree_map::BTreeMap::new();
-        for (label, qubits) in iter {
-            sorted.clear();
-            let label: &[u8] = label.as_ref();
-            if label.len() != qubits.len() {
-                return Err(LabelError::WrongLengthIndices {
-                    label: label.len(),
-                    indices: indices.len(),
-                }
-                .into());
-            }
-            for (letter, index) in label.iter().zip(qubits) {
-                if index >= num_qubits {
-                    return Err(LabelError::BadIndex { index, num_qubits }.into());
-                }
-                let btree_map::Entry::Vacant(entry) = sorted.entry(index) else {
-                    return Err(LabelError::DuplicateIndex { index }.into());
-                };
-                entry.insert(
-                    BitTerm::try_from_u8(*letter).map_err(|_| LabelError::OutsideAlphabet)?,
-                );
-            }
-            for (index, term) in sorted.iter() {
-                let Some(term) = term else {
-                    continue;
-                };
-                indices.push(*index);
-                bit_terms.push(*term);
-            }
-            boundaries.push(bit_terms.len());
-        }
+        let (bit_terms, indices, boundaries) = raw_parts_from_sparse_list(iter, num_qubits)?;
         let inner = QubitSparsePauliList::new(num_qubits, bit_terms, indices, boundaries)?;
-        Ok(inner.into())
+        return Ok(inner.into())
     }
 
     /// Express the list in terms of a sparse list format.
@@ -2207,6 +2171,47 @@ impl PyQubitSparsePauliList {
             .get_or_try_init(py, || make_py_bit_term(py))
             .map(|obj| obj.clone_ref(py))
     }
+}
+
+pub fn raw_parts_from_sparse_list(iter: Vec<(String, Vec<u32>)>, num_qubits: u32) ->  Result<(Vec<BitTerm>, Vec<u32>, Vec<usize>), LabelError> {
+    let mut boundaries = Vec::with_capacity(iter.len() + 1);
+    boundaries.push(0);
+    let mut indices = Vec::new();
+    let mut bit_terms = Vec::new();
+    // Insertions to the `BTreeMap` keep it sorted by keys, so we use this to do the termwise
+    // sorting on-the-fly.
+    let mut sorted = btree_map::BTreeMap::new();
+    for (label, qubits) in iter {
+        sorted.clear();
+        let label: &[u8] = label.as_ref();
+        if label.len() != qubits.len() {
+            return Err(LabelError::WrongLengthIndices {
+                label: label.len(),
+                indices: indices.len(),
+            }
+            .into());
+        }
+        for (letter, index) in label.iter().zip(qubits) {
+            if index >= num_qubits {
+                return Err(LabelError::BadIndex { index, num_qubits }.into());
+            }
+            let btree_map::Entry::Vacant(entry) = sorted.entry(index) else {
+                return Err(LabelError::DuplicateIndex { index }.into());
+            };
+            entry.insert(
+                BitTerm::try_from_u8(*letter).map_err(|_| LabelError::OutsideAlphabet)?,
+            );
+        }
+        for (index, term) in sorted.iter() {
+            let Some(term) = term else {
+                continue;
+            };
+            indices.push(*index);
+            bit_terms.push(*term);
+        }
+        boundaries.push(bit_terms.len());
+    }
+    Ok((bit_terms, indices, boundaries))
 }
 
 impl From<QubitSparsePauli> for PyQubitSparsePauli {
