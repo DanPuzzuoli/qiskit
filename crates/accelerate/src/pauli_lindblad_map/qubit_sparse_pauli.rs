@@ -737,7 +737,7 @@ fn bit_term_label(py: Python, slf: BitTerm) -> &Bound<PyString> {
 ///
 /// The resulting class is attached to `QubitSparsePauliList` as a class attribute, and its
 /// `__qualname__` is set to reflect this.
-fn make_py_bit_term(py: Python) -> PyResult<Py<PyType>> {
+pub fn make_py_bit_term(py: Python) -> PyResult<Py<PyType>> {
     let terms = [BitTerm::X, BitTerm::Y, BitTerm::Z]
         .into_iter()
         .flat_map(|term| {
