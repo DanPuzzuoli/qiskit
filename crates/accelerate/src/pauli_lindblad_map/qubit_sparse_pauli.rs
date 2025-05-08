@@ -646,6 +646,7 @@ impl QubitSparsePauli {
         &self.paulis
     }
 
+    // Phaseless composition of two pauli operators.
     pub fn compose(&self, other: &QubitSparsePauli) -> Result<QubitSparsePauli, ArithmeticError> {
         if self.num_qubits != other.num_qubits {
             return Err(ArithmeticError::MismatchedQubits {
@@ -669,22 +670,16 @@ impl QubitSparsePauli {
         let mut self_idx = 0;
         let mut other_idx = 0;
 
+        // iterate through each entry of self and other one time, incrementing based on the ordering
+        // or equality of self_idx and other_idx, until one of them runs out of entries
         while self_idx < self.indices.len() && other_idx < other.indices.len() {
             if self.indices[self_idx] < other.indices[other_idx] {
-                if self_idx == self.indices.len() {
-                    paulis.append(&mut other.paulis[other_idx..].to_vec());
-                    indices.append(&mut other.indices[other_idx..].to_vec());
-                    return Ok(QubitSparsePauli {
-                        num_qubits: self.num_qubits,
-                        paulis: paulis.into_boxed_slice(),
-                        indices: indices.into_boxed_slice()
-                    })
-                } else {
-                    paulis.push(self.paulis[self_idx]);
-                    indices.push(self.indices[self_idx]);
-                    self_idx += 1;
-                }
+                // if the current qubit index of self is strictly less than other, append the pauli
+                paulis.push(self.paulis[self_idx]);
+                indices.push(self.indices[self_idx]);
+                self_idx += 1;
             } else if self.indices[self_idx] == other.indices[other_idx] {
+                // if the indices are the same, perform multiplication and append if non-identity
                 let new_pauli = (self.paulis[self_idx] as u8) ^ (other.paulis[other_idx] as u8);
                 if new_pauli != 0 {
                     paulis.push(match new_pauli {
@@ -698,20 +693,20 @@ impl QubitSparsePauli {
                 self_idx += 1;
                 other_idx += 1;
             } else {
-                if other_idx == other.indices.len() {
-                    paulis.append(&mut self.paulis[self_idx..].to_vec());
-                    indices.append(&mut self.indices[self_idx..].to_vec());
-                    return Ok(QubitSparsePauli {
-                        num_qubits: self.num_qubits,
-                        paulis: paulis.into_boxed_slice(),
-                        indices: indices.into_boxed_slice()
-                    })
-                } else {
-                    paulis.push(other.paulis[other_idx]);
-                    indices.push(other.indices[other_idx]);
-                    other_idx += 1;
-                }
+                // same as the first if block but with roles of self and other reversed
+                paulis.push(other.paulis[other_idx]);
+                indices.push(other.indices[other_idx]);
+                other_idx += 1;
             }
+        }
+
+        // if any entries remain in either pauli, append them
+        if other_idx != other.indices.len() {
+            paulis.append(&mut other.paulis[other_idx..].to_vec());
+            indices.append(&mut other.indices[other_idx..].to_vec());
+        } else if self_idx != self.indices.len() {
+            paulis.append(&mut self.paulis[self_idx..].to_vec());
+            indices.append(&mut self.indices[self_idx..].to_vec());
         }
 
         return Ok(QubitSparsePauli {
@@ -1280,6 +1275,10 @@ impl PyQubitSparsePauli {
         Ok(PyQubitSparsePauli {
             inner: self.inner.compose(&other.inner)?
         })
+    }
+
+    fn __matmul__(&self, other: PyQubitSparsePauli) -> PyResult<Self> {
+        self.compose(other)
     }
 
     fn __eq__(slf: Bound<Self>, other: Bound<PyAny>) -> PyResult<bool> {
