@@ -644,6 +644,41 @@ impl QubitSparsePauli {
         &self.paulis
     }
 
+    // Check if self commutes with other
+    pub fn commutes(&self, other: &QubitSparsePauli) -> Result<bool, ArithmeticError> {
+        if self.num_qubits != other.num_qubits {
+            return Err(ArithmeticError::MismatchedQubits {
+                left: self.num_qubits,
+                right: other.num_qubits,
+            });
+        }
+
+        // if either are the identity, return true
+        if self.indices.len() == 0 || other.indices.len() == 0 {
+            return Ok(true)
+        }
+
+        let mut commutes = true;
+
+        let mut self_idx = 0;
+        let mut other_idx = 0;
+
+        // iterate through each entry of self and other one time, incrementing based on the ordering
+        // or equality of self_idx and other_idx, until one of them runs out of entries
+        while self_idx < self.indices.len() && other_idx < other.indices.len() {
+            if self.indices[self_idx] < other.indices[other_idx] {
+                self_idx += 1;
+            } else if self.indices[self_idx] == other.indices[other_idx] {
+                // if the indices are the same, check commutation
+                commutes = commutes && (self.paulis[self_idx] == other.paulis[other_idx]);
+            } else {
+                other_idx += 1;
+            }
+        }
+
+        Ok(commutes)
+    }
+
     /// Get a view version of this object.
     pub fn view(&self) -> QubitSparsePauliView {
         QubitSparsePauliView {
