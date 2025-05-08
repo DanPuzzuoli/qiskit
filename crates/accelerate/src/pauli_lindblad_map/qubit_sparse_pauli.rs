@@ -655,7 +655,7 @@ impl QubitSparsePauli {
 
         // if either are the identity, return true
         if self.indices.len() == 0 || other.indices.len() == 0 {
-            return Ok(true)
+            return Ok(true);
         }
 
         let mut commutes = true;

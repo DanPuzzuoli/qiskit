@@ -439,7 +439,7 @@ class TestQubitSparsePauli(QiskitTestCase):
             np.array([0, 1, 2], dtype=np.uint8),
             strict=True,
         )
-    
+
     def test_commutes(self):
         p0 = QubitSparsePauli("XIY")
         p1 = QubitSparsePauli("IZI")
@@ -460,7 +460,7 @@ class TestQubitSparsePauli(QiskitTestCase):
         p1 = QubitSparsePauli("IZXY")
         self.assertTrue(p0.commutes(p1))
         self.assertTrue(p1.commutes(p0))
-        
+
         p0 = QubitSparsePauli("XXYYZ")
         p1 = QubitSparsePauli("IZXYX")
         self.assertFalse(p0.commutes(p1))
