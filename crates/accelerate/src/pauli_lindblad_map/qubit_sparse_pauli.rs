@@ -29,8 +29,7 @@ use std::{
 use thiserror::Error;
 
 use qiskit_circuit::{
-    imports::{ImportOnceCell, NUMPY_COPY_ONLY_IF_NEEDED},
-    slice::{PySequenceIndex, SequenceIndex},
+    bit::PyQubit, imports::{ImportOnceCell, NUMPY_COPY_ONLY_IF_NEEDED}, slice::{PySequenceIndex, SequenceIndex}, Qubit
 };
 
 static PAULI_TYPE: ImportOnceCell = ImportOnceCell::new("qiskit.quantum_info", "Pauli");
@@ -214,6 +213,8 @@ pub enum LabelError {
 pub enum ArithmeticError {
     #[error("mismatched numbers of qubits: {left}, {right}")]
     MismatchedQubits { left: u32, right: u32 },
+    #[error("multiplying single qubit paulis resulted in bit value: {b}")]
+    PauliMultiplication { b: u8 },
 }
 
 /// A list of Pauli operators stored in a qubit-sparse format.
@@ -642,6 +643,81 @@ impl QubitSparsePauli {
     #[inline]
     pub fn paulis(&self) -> &[Pauli] {
         &self.paulis
+    }
+
+    pub fn compose(&self, other: &QubitSparsePauli) -> Result<QubitSparsePauli, ArithmeticError> {
+        if self.num_qubits != other.num_qubits {
+            return Err(ArithmeticError::MismatchedQubits {
+                left: self.num_qubits,
+                right: other.num_qubits,
+            });
+        }
+
+        // if either are the identity, return a clone of the other
+        if self.indices.len() == 0 {
+            return Ok(other.clone())
+        }
+
+        if other.indices.len() == 0 {
+            return Ok(self.clone())
+        }
+
+        let mut paulis = Vec::new();
+        let mut indices = Vec::new();
+
+        let mut self_idx = 0;
+        let mut other_idx = 0;
+
+        while self_idx < self.indices.len() && other_idx < other.indices.len() {
+            if self.indices[self_idx] < other.indices[other_idx] {
+                if self_idx == self.indices.len() {
+                    paulis.append(&mut other.paulis[other_idx..].to_vec());
+                    indices.append(&mut other.indices[other_idx..].to_vec());
+                    return Ok(QubitSparsePauli {
+                        num_qubits: self.num_qubits,
+                        paulis: paulis.into_boxed_slice(),
+                        indices: indices.into_boxed_slice()
+                    })
+                } else {
+                    paulis.push(self.paulis[self_idx]);
+                    indices.push(self.indices[self_idx]);
+                    self_idx += 1;
+                }
+            } else if self.indices[self_idx] == other.indices[other_idx] {
+                let new_pauli = (self.paulis[self_idx] as u8) ^ (other.paulis[other_idx] as u8);
+                if new_pauli != 0 {
+                    paulis.push(match new_pauli {
+                        0b01 => Ok(Pauli::Z),
+                        0b10 => Ok(Pauli::X),
+                        0b11 => Ok(Pauli::Y),
+                        _ => Err(ArithmeticError::PauliMultiplication { b:new_pauli })
+                    }?);
+                    indices.push(self.indices[self_idx])
+                }
+                self_idx += 1;
+                other_idx += 1;
+            } else {
+                if other_idx == other.indices.len() {
+                    paulis.append(&mut self.paulis[self_idx..].to_vec());
+                    indices.append(&mut self.indices[self_idx..].to_vec());
+                    return Ok(QubitSparsePauli {
+                        num_qubits: self.num_qubits,
+                        paulis: paulis.into_boxed_slice(),
+                        indices: indices.into_boxed_slice()
+                    })
+                } else {
+                    paulis.push(other.paulis[other_idx]);
+                    indices.push(other.indices[other_idx]);
+                    other_idx += 1;
+                }
+            }
+        }
+
+        return Ok(QubitSparsePauli {
+            num_qubits: self.num_qubits,
+            paulis: paulis.into_boxed_slice(),
+            indices: indices.into_boxed_slice()
+        })
     }
 
     /// Get a view version of this object.
@@ -1197,6 +1273,12 @@ impl PyQubitSparsePauli {
 
     fn to_label(&self) -> PyResult<String> {
         Ok(self.inner.view().to_sparse_str())
+    }
+
+    fn compose(&self, other: PyQubitSparsePauli) -> PyResult<Self> {
+        Ok(PyQubitSparsePauli {
+            inner: self.inner.compose(&other.inner)?
+        })
     }
 
     fn __eq__(slf: Bound<Self>, other: Bound<PyAny>) -> PyResult<bool> {
