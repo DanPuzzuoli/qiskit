@@ -670,7 +670,9 @@ impl QubitSparsePauli {
                 self_idx += 1;
             } else if self.indices[self_idx] == other.indices[other_idx] {
                 // if the indices are the same, check commutation
-                commutes = commutes && (self.paulis[self_idx] == other.paulis[other_idx]);
+                commutes = commutes == (self.paulis[self_idx] == other.paulis[other_idx]);
+                self_idx += 1;
+                other_idx += 1;
             } else {
                 other_idx += 1;
             }
@@ -1232,6 +1234,14 @@ impl PyQubitSparsePauli {
 
     fn to_label(&self) -> PyResult<String> {
         Ok(self.inner.view().to_sparse_str())
+    }
+
+    /// Check if self commutes with another :class:`QubitSparsePauli`.
+    ///
+    /// Args:
+    ///     other (QubitSparsePauli): the qubit sparse Pauli to check for commutation with.
+    fn commutes(&self, other: PyQubitSparsePauli) -> PyResult<bool> {
+        Ok(self.inner.commutes(&other.inner)?)
     }
 
     fn __eq__(slf: Bound<Self>, other: Bound<PyAny>) -> PyResult<bool> {
