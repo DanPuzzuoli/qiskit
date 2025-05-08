@@ -439,7 +439,12 @@ class TestQubitSparsePauli(QiskitTestCase):
             np.array([0, 1, 2], dtype=np.uint8),
             strict=True,
         )
+    
+    def test_compose(self):
+        p0 = QubitSparsePauli.from_label("XZY")
+        p1 = QubitSparsePauli.from_label("ZIY")
 
+        self.assertEqual(p0.compose(p1), QubitSparsePauli.from_label("YZI"))
 
 @ddt.ddt
 class TestQubitSparsePauliList(QiskitTestCase):
