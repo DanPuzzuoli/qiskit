@@ -29,7 +29,8 @@ use std::{
 use thiserror::Error;
 
 use qiskit_circuit::{
-    bit::PyQubit, imports::{ImportOnceCell, NUMPY_COPY_ONLY_IF_NEEDED}, slice::{PySequenceIndex, SequenceIndex}, Qubit
+    imports::{ImportOnceCell, NUMPY_COPY_ONLY_IF_NEEDED},
+    slice::{PySequenceIndex, SequenceIndex},
 };
 
 static PAULI_TYPE: ImportOnceCell = ImportOnceCell::new("qiskit.quantum_info", "Pauli");
