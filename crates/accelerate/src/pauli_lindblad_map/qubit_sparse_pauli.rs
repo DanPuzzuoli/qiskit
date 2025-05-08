@@ -1271,6 +1271,11 @@ impl PyQubitSparsePauli {
         Ok(self.inner.view().to_sparse_str())
     }
 
+
+    /// Phaseless composition with another :class:`QubitSparsePauli`.
+    ///
+    /// Args:
+    ///     other (QubitSparsePauli): the qubit sparse Pauli to compose with.
     fn compose(&self, other: PyQubitSparsePauli) -> PyResult<Self> {
         Ok(PyQubitSparsePauli {
             inner: self.inner.compose(&other.inner)?
