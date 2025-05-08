@@ -657,11 +657,11 @@ impl QubitSparsePauli {
 
         // if either are the identity, return a clone of the other
         if self.indices.len() == 0 {
-            return Ok(other.clone())
+            return Ok(other.clone());
         }
 
         if other.indices.len() == 0 {
-            return Ok(self.clone())
+            return Ok(self.clone());
         }
 
         let mut paulis = Vec::new();
@@ -686,7 +686,7 @@ impl QubitSparsePauli {
                         0b01 => Ok(Pauli::Z),
                         0b10 => Ok(Pauli::X),
                         0b11 => Ok(Pauli::Y),
-                        _ => Err(ArithmeticError::PauliMultiplication { b:new_pauli })
+                        _ => Err(ArithmeticError::PauliMultiplication { b: new_pauli }),
                     }?);
                     indices.push(self.indices[self_idx])
                 }
@@ -709,10 +709,10 @@ impl QubitSparsePauli {
             indices.append(&mut self.indices[self_idx..].to_vec());
         }
 
-        return Ok(QubitSparsePauli {
+        Ok(QubitSparsePauli {
             num_qubits: self.num_qubits,
             paulis: paulis.into_boxed_slice(),
-            indices: indices.into_boxed_slice()
+            indices: indices.into_boxed_slice(),
         })
     }
 
@@ -1271,14 +1271,13 @@ impl PyQubitSparsePauli {
         Ok(self.inner.view().to_sparse_str())
     }
 
-
     /// Phaseless composition with another :class:`QubitSparsePauli`.
     ///
     /// Args:
     ///     other (QubitSparsePauli): the qubit sparse Pauli to compose with.
     fn compose(&self, other: PyQubitSparsePauli) -> PyResult<Self> {
         Ok(PyQubitSparsePauli {
-            inner: self.inner.compose(&other.inner)?
+            inner: self.inner.compose(&other.inner)?,
         })
     }
 
