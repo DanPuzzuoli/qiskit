@@ -285,6 +285,38 @@ impl PauliLindbladMap {
             indices: &self.qubit_sparse_pauli_list.indices[start..end],
         }
     }
+
+    // Check if self commutes with other
+    pub fn compose(&self, other: &PauliLindbladMap) -> Result<PauliLindbladMap, ArithmeticError> {
+        if self.num_qubits != other.num_qubits {
+            return Err(ArithmeticError::MismatchedQubits {
+                left: self.num_qubits,
+                right: other.num_qubits,
+            });
+        }
+
+        let rates: Vec<f64> = Vec::new();
+        rates.extend_from_slice(&self.rates);
+        rates.extend_from_slice(&other.rates);
+
+        let paulis = Vec::new();
+        paulis.extend_from_slice(&self.paulis);
+        paulis.extend_from_slice(&other.paulis);
+
+        let indices: Vec<u32> = Vec::new();
+        indices.extend_from_slice(&self.indices);
+        indices.extend_from_slice(&other.indices);
+
+        let boundaries: Vec<usize> = Vec::new();
+        boundaries.extend_from_slice(&self.boundaries);
+        let offset = self.boundaries[self.boundaries.len() - 1];
+        boundaries.extend_from_slice(&other.boundaries[1..].iter().map(|boundary| offset + boundary));
+        
+        unsafe {
+            Ok(PauliLindbladMap::new_unchecked(self.num_qubits, rates, paulis, indices, boundaries))
+        }
+        
+    }
 }
 
 /// A view object onto a single term of a `PauliLindbladMap`.
