@@ -1071,6 +1071,17 @@ class TestPauliLindbladMap(QiskitTestCase):
 
         p0 = PauliLindbladMap.identity(20)
         self.assertEqual(p0 @ p0, p0)
+    
+    def test_compose_errors(self):
+
+        p0 = PauliLindbladMap.from_sparse_list([("XYZ", [3, 2, 1], 2.1)], 4)
+        p1 = PauliLindbladMap.identity(3)
+
+        with self.assertRaisesRegex(ValueError, r"mismatched numbers of qubits: 4, 3"):
+            p0.compose(p1)
+
+        with self.assertRaisesRegex(TypeError, r"unknown type for compose"):
+            p0.compose(1.)
 
 
 
