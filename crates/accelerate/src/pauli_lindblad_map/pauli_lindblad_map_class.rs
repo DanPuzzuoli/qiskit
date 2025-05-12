@@ -1427,6 +1427,10 @@ impl PyPauliLindbladMap {
         composed.into_pyobject(py)
     }
 
+    fn __matmul__<'py>(&self, other: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyPauliLindbladMap>> {
+        self.compose(other)
+    }
+
     fn __getitem__<'py>(
         &self,
         py: Python<'py>,
