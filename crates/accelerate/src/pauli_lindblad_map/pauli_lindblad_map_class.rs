@@ -286,7 +286,7 @@ impl PauliLindbladMap {
         }
     }
 
-    // Check if self commutes with other
+    // Compose with another PauliLindbladMap
     pub fn compose(&self, other: &PauliLindbladMap) -> Result<PauliLindbladMap, ArithmeticError> {
         if self.num_qubits() != other.num_qubits() {
             return Err(ArithmeticError::MismatchedQubits {
@@ -300,22 +300,31 @@ impl PauliLindbladMap {
         rates.extend_from_slice(&other.rates);
 
         let mut paulis = Vec::new();
-        paulis.extend_from_slice(&self.paulis());
-        paulis.extend_from_slice(&other.paulis());
+        paulis.extend_from_slice(self.paulis());
+        paulis.extend_from_slice(other.paulis());
 
         let mut indices: Vec<u32> = Vec::new();
-        indices.extend_from_slice(&self.indices());
-        indices.extend_from_slice(&other.indices());
+        indices.extend_from_slice(self.indices());
+        indices.extend_from_slice(other.indices());
 
         let mut boundaries: Vec<usize> = Vec::new();
-        boundaries.extend_from_slice(&self.boundaries());
+        boundaries.extend_from_slice(self.boundaries());
         let offset = self.boundaries()[self.boundaries().len() - 1];
-        boundaries.extend(other.boundaries()[1..].iter().map(|boundary| offset + boundary));
-        
+        boundaries.extend(
+            other.boundaries()[1..]
+                .iter()
+                .map(|boundary| offset + boundary),
+        );
+
         unsafe {
-            Ok(PauliLindbladMap::new_unchecked(self.num_qubits(), rates, paulis, indices, boundaries))
+            Ok(PauliLindbladMap::new_unchecked(
+                self.num_qubits(),
+                rates,
+                paulis,
+                indices,
+                boundaries,
+            ))
         }
-        
     }
 }
 
@@ -1407,8 +1416,10 @@ impl PyPauliLindbladMap {
             .into_pyobject(py)
     }
 
-    /// Compose with another :class:`PauliLindbladMap`. This appends the internal arrays of self
-    /// and other.
+    /// Compose with another :class:`PauliLindbladMap`.
+    /// 
+    /// This appends the internal arrays of self and other, and therefore results in a map with
+    /// whose enumerated terms are those of self followed by those of other.
     ///
     /// Args:
     ///     other (PauliLindbladMap): the Pauli Lindblad map to compose with.
@@ -1427,7 +1438,10 @@ impl PyPauliLindbladMap {
         composed.into_pyobject(py)
     }
 
-    fn __matmul__<'py>(&self, other: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyPauliLindbladMap>> {
+    fn __matmul__<'py>(
+        &self,
+        other: &Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, PyPauliLindbladMap>> {
         self.compose(other)
     }
 
