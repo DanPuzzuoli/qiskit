@@ -288,32 +288,32 @@ impl PauliLindbladMap {
 
     // Check if self commutes with other
     pub fn compose(&self, other: &PauliLindbladMap) -> Result<PauliLindbladMap, ArithmeticError> {
-        if self.num_qubits != other.num_qubits {
+        if self.num_qubits() != other.num_qubits() {
             return Err(ArithmeticError::MismatchedQubits {
-                left: self.num_qubits,
-                right: other.num_qubits,
+                left: self.num_qubits(),
+                right: other.num_qubits(),
             });
         }
 
-        let rates: Vec<f64> = Vec::new();
+        let mut rates: Vec<f64> = Vec::new();
         rates.extend_from_slice(&self.rates);
         rates.extend_from_slice(&other.rates);
 
-        let paulis = Vec::new();
-        paulis.extend_from_slice(&self.paulis);
-        paulis.extend_from_slice(&other.paulis);
+        let mut paulis = Vec::new();
+        paulis.extend_from_slice(&self.paulis());
+        paulis.extend_from_slice(&other.paulis());
 
-        let indices: Vec<u32> = Vec::new();
-        indices.extend_from_slice(&self.indices);
-        indices.extend_from_slice(&other.indices);
+        let mut indices: Vec<u32> = Vec::new();
+        indices.extend_from_slice(&self.indices());
+        indices.extend_from_slice(&other.indices());
 
-        let boundaries: Vec<usize> = Vec::new();
-        boundaries.extend_from_slice(&self.boundaries);
-        let offset = self.boundaries[self.boundaries.len() - 1];
-        boundaries.extend_from_slice(&other.boundaries[1..].iter().map(|boundary| offset + boundary));
+        let mut boundaries: Vec<usize> = Vec::new();
+        boundaries.extend_from_slice(&self.boundaries());
+        let offset = self.boundaries()[self.boundaries().len() - 1];
+        boundaries.extend(other.boundaries()[1..].iter().map(|boundary| offset + boundary));
         
         unsafe {
-            Ok(PauliLindbladMap::new_unchecked(self.num_qubits, rates, paulis, indices, boundaries))
+            Ok(PauliLindbladMap::new_unchecked(self.num_qubits(), rates, paulis, indices, boundaries))
         }
         
     }
@@ -1407,6 +1407,26 @@ impl PyPauliLindbladMap {
             .into_pyobject(py)
     }
 
+    /// Compose with another :class:`PauliLindbladMap`. This appends the internal arrays of self
+    /// and other.
+    ///
+    /// Args:
+    ///     other (PauliLindbladMap): the Pauli Lindblad map to compose with.
+    fn compose<'py>(&self, other: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyPauliLindbladMap>> {
+        let py = other.py();
+        let inner = self.inner.read().map_err(|_| InnerReadError)?;
+        let Some(other) = coerce_to_map(other)? else {
+            return Err(PyTypeError::new_err(format!(
+                "unknown type for compose: {}",
+                other.get_type().repr()?
+            )));
+        };
+        let other = other.borrow();
+        let other_inner = other.inner.read().map_err(|_| InnerReadError)?;
+        let composed = inner.compose(&other_inner)?;
+        composed.into_pyobject(py)
+    }
+
     fn __getitem__<'py>(
         &self,
         py: Python<'py>,
@@ -1716,6 +1736,37 @@ impl ArrayView {
             ArraySlot::Paulis => {
                 let paulis: &[u8] = ::bytemuck::cast_slice(pauli_lindblad_map.paulis());
                 cast_array_type(py, PyArray1::from_slice(py, paulis), dtype)
+            }
+        }
+    }
+}
+
+/// Attempt to coerce an arbitrary Python object to a [PyPauliLindbladMap].
+///
+/// This returns:
+///
+/// * `Ok(Some(obs))` if the coercion was completely successful.
+/// * `Ok(None)` if the input value was just completely the wrong type and no coercion could be
+///   attempted.
+/// * `Err` if the input was a valid type for coercion, but the coercion failed with a Python
+///   exception.
+///
+/// The purpose of this is for conversion the arithmetic operations, which should return
+/// [PyNotImplemented] if the type is not valid for coercion.
+fn coerce_to_map<'py>(
+    value: &Bound<'py, PyAny>,
+) -> PyResult<Option<Bound<'py, PyPauliLindbladMap>>> {
+    let py = value.py();
+    if let Ok(obs) = value.downcast_exact::<PyPauliLindbladMap>() {
+        return Ok(Some(obs.clone()));
+    }
+    match PyPauliLindbladMap::py_new(value, None) {
+        Ok(obs) => Ok(Some(Bound::new(py, obs)?)),
+        Err(e) => {
+            if e.is_instance_of::<PyTypeError>(py) {
+                Ok(None)
+            } else {
+                Err(e)
             }
         }
     }
