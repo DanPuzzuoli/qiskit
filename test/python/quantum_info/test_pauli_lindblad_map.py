@@ -1044,6 +1044,35 @@ class TestPauliLindbladMap(QiskitTestCase):
             [(labels, indices, 1)], pauli_lindblad_map.num_qubits
         )
         self.assertEqual(pauli_lindblad_map, reconstructed)
+    
+    def test_compose(self):
+        """Test compose method."""
+        p0 = PauliLindbladMap.from_sparse_list([("XYZ", [3, 2, 1], 2.1)], 4)
+        expected = PauliLindbladMap.from_sparse_list([("XYZ", [3, 2, 1], 2.1), ("XYZ", [3, 2, 1], 2.1)], 4)
+        self.assertEqual(p0.compose(p0), expected)
+
+        # validate original object unchanged
+        self.assertEqual(p0, PauliLindbladMap.from_sparse_list([("XYZ", [3, 2, 1], 2.1)], 4))
+
+        p0 = PauliLindbladMap.from_sparse_list([("XYZ", [3, 2, 1], 2.1), ("Y", [0], 0.1)], 4)
+        p1 = PauliLindbladMap.from_sparse_list([("X", [3], 0.2), ("Z", [1], 0.1)], 4)
+        expected = PauliLindbladMap.from_sparse_list([("XYZ", [3, 2, 1], 2.1), ("Y", [0], 0.1), ("X", [3], 0.2), ("Z", [1], 0.1)], 4)
+        self.assertEqual(p0 @ p1, expected)
+
+        # validate original objects unchanged
+        self.assertEqual(p0, PauliLindbladMap.from_sparse_list([("XYZ", [3, 2, 1], 2.1), ("Y", [0], 0.1)], 4))
+        self.assertEqual(p1, PauliLindbladMap.from_sparse_list([("X", [3], 0.2), ("Z", [1], 0.1)], 4))
+
+        # test composition with identity map
+        p0 = PauliLindbladMap.from_sparse_list([("XYZ", [3, 2, 1], 2.1)], 4)
+        p1 = PauliLindbladMap.identity(4)
+        self.assertEqual(p0 @ p1, p0)
+        self.assertEqual(p1 @ p0, p0)
+
+        p0 = PauliLindbladMap.identity(20)
+        self.assertEqual(p0 @ p0, p0)
+
+
 
 
 def canonicalize_term(pauli, indices, rate):
