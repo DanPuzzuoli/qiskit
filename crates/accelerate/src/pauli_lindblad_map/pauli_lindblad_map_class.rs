@@ -312,7 +312,7 @@ impl PauliLindbladMap {
             PauliLindbladMap::new_unchecked(new_rates, qubit_sparse_pauli_list)
         }
     }
-    
+
     /// Scale the rates by a set factor.
     ///
     /// # Safety
@@ -1227,7 +1227,7 @@ impl PyPauliLindbladMap {
         let simplified = inner.simplify(tol);
         Ok(simplified.into())
     }
-    
+
     /// Return a new :class:`PauliLindbladMap` with rates scaled by `scale_factor`.
     ///
     /// Args:
