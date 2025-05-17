@@ -1207,7 +1207,7 @@ impl PyPauliLindbladMap {
     ///         ...     ("XX", (3, 1), 2),      # can be combined with the above
     ///         ...     ("ZZ", (3, 1), 0.5),    # out of order compared to `expected`
     ///         ... ], num_qubits=5)
-    ///         >>> expected = SparseObservable.from_list([("I0I1I", 0.5), ("I+I-I", 4j)])
+    ///         >>> expected = PauliLindbladMap.from_list([("IZIZI", 0.5), ("IXIXI", 4)])
     ///         >>> assert base != expected  # non-canonical comparison
     ///         >>> assert base.simplify() == expected.simplify()
     ///
