@@ -301,16 +301,13 @@ impl PauliLindbladMap {
             new_indices.extend_from_slice(indices);
             new_boundaries.push(new_indices.len());
         }
-        unsafe {
-            let qubit_sparse_pauli_list = QubitSparsePauliList::new_unchecked(
-                self.num_qubits(),
-                new_paulis,
-                new_indices,
-                new_boundaries,
-            );
-
-            PauliLindbladMap::new_unchecked(new_rates, qubit_sparse_pauli_list)
-        }
+        Self::new_from_raw_parts(
+            self.num_qubits(),
+            self.rates().to_vec(),
+            new_paulis,
+            new_indices,
+            new_boundaries,
+            )
     }
 
     /// Scale the rates by a set factor.
